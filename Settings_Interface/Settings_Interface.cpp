@@ -69,14 +69,68 @@ class ISettings
 {
 	map <string, ISettingsValue> list;
 
+	pair <string, ISettingsValue> parseLineInParam(string settingStr)
+	{
+		
+
+
+
+	}
+
+	string writeStringForSave(pair <string, ISettingsValue> item)
+	{
+		string resultString = item.first + " = ";
+
+		switch (item.second.GetType())
+		{	
+		case dtUnknown:
+			return "";
+
+		case dtBoolean:
+			if (item.second.AsBoolean())
+				return resultString += "true";
+			return resultString += "false";
+
+		case dtString:
+			return resultString += "\"" + item.second.AsString() + "\"";
+		}
+		return item.second.AsString();
+	}
+
 public:
 
 	virtual bool LoadFromFile(const string& name)
 	{
+		ifstream file(name);
+		if (!file)
+			return false;
+		
+		while (!file.eof())
+		{
+			string lineBufStr = "";
+			getline(file, lineBufStr);
 
+			auto item = parseLineInParam(lineBufStr);
+			list.insert(item);
+			
+			file.close();
+		}
+		return true;
 	}
 
-	virtual bool SaveToFile(const string& name) = 0;
+	virtual bool SaveToFile(const string& name)
+	{
+		ofstream file(name);
+		if (file)
+		{
+			for (auto item : list)
+				file << writeStringForSave(item) << '\n';
+
+			file.close();
+			return true;
+		}
+		return false;
+	}
 
 	virtual ISettingsValue Get(const string& paramName)
 	{
@@ -172,9 +226,9 @@ public:
 
 	virtual ~ISettings() 
 	{
-		for (auto i : list)
+		for (auto item : list)
 		{
-			delete &i.second;
+			delete &item.second;
 		}
 		list.clear();
 	}
