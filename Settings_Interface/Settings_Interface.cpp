@@ -130,9 +130,11 @@ class ISettings
 		string validName = "";
 		for (auto i : item.first)
 		{
-			if (isValIdSymbol(i))
+			if (isValIdSymbol(i) || isValIdSymbol(i))
 				validName += i;
 		}
+		if (isNumber(validName[0]))
+			validName.substr(1);
 
 		string resultString = validName + " = ";
 
@@ -218,7 +220,9 @@ public:
 
 	virtual void SetValue(const string& paramName, const ISettingsValue& value)
 	{
-		*list[paramName] = value;
+		ISettingsValue* newValue = new ISettingsValue;
+		*newValue = value;
+		list[paramName] = newValue;
 	}
 
 	virtual void SetValue(const string& paramName, int value)
@@ -283,10 +287,10 @@ public:
 
 	virtual ~ISettings() 
 	{
-		/*for (auto item : list)
+		for (auto item : list)
 		{
-			delete &item.second;
-		}*/
+			delete item.second;
+		}
 		list.clear();
 	}
 
@@ -294,15 +298,17 @@ public:
 
 int main()
 {
-
 	ISettingsValue a;
 	a.SetValue("true");
 
 	ISettings set;
-	set.SetValue("first_parameter", a);
-	set.SetValue("second_parameter", a);
+	set.SetValue("1first parameter", a);
+	set.SetValue("second_pa 24rametE]\nr", a);
 	set.SetValue("third_parameter", a);
 	set.SetValue("fifth_parameter", a);
+
+	set.SetValue("second_parameter", 2);
+	cout << a.AsString();
 
 	set.SaveToFile("test.txt");
 
