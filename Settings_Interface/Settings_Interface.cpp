@@ -5,6 +5,7 @@
 #include <fstream>
 #include <map>
 #include <string>
+#include <sstream>
 
 using namespace std;
 
@@ -19,12 +20,10 @@ enum DataType
 
 class ISettingsValue
 {
-	string value;
-	DataType type;
+	string value = "";
+	DataType type = dtUnknown;
 
 public:
-	ISettingsValue(const string& value = "") { SetValue(value); }
-
 	void SetValue(const string& value)
 	{
 		this->value = value;
@@ -41,17 +40,24 @@ public:
 
 	virtual int AsInteger()
 	{
-		try { return stoi(value); }
-		catch (std::invalid_argument e)	{ return 0; }
+		stringstream valueStream(value);
+		int result = 0;
+		valueStream >> result;
+		return result;
 	}
 
 	virtual double AsDouble()
-	{
-		try { return stod(value); }
-		catch (std::invalid_argument e)	{ return 0; }		
+	{	
+		stringstream valueStream(value);
+		double result = 0;
+		valueStream >> result;
+		return result;
 	}
 
-	virtual bool AsBoolean() { return !value.empty(); }
+	virtual bool AsBoolean()
+	{
+		return !value.empty();
+	}
 
 	virtual DataType GetType() { return type; }
 
@@ -61,14 +67,7 @@ public:
 
 class ISettings
 {
-	string value;
-
-	struct parameter {
-		string value;
-		DataType type;
-	};
-	
-	map <string, parameter> list;
+	map <string, ISettingsValue> list;
 
 public:
 
@@ -79,60 +78,123 @@ public:
 
 	virtual bool SaveToFile(const string& name) = 0;
 
-	virtual ISettingsValue Get(const string& paramName) = 0;
+	virtual ISettingsValue Get(const string& paramName)
+	{
+		return list[paramName];
+	}
 
 	virtual int GetInteger(const string& paramName)
 	{
-		try { return stoi(value); }
-		catch (std::invalid_argument e) { return 0; }
+		return list[paramName].AsInteger();
 	}
 
 	virtual double GetFloat(const string& paramName)
 	{
-		try { return stod(value); }
-		catch (std::invalid_argument e) { return 0; }
+		return list[paramName].AsDouble();
 	}
 
 	virtual bool GetBoolean(const string& paramName) 
 	{ 
-		return !value.empty(); 
+		list[paramName].AsBoolean();
 	}
 
 	virtual string GetString(const string& paramName)
 	{
-		return value;
+		list[paramName].AsString();
 	}
 
-	virtual void SetValue(const string& paramName, const ISettingsValue& value) = 0;
+	virtual void SetValue(const string& paramName, const ISettingsValue& value)
+	{
+		ISettingsValue* newValue = new ISettingsValue;
+		newValue->SetValue(dtUnknown, value.AsString);
+		list[paramName] = *newValue;
+	}
 
-	virtual void SetValue(const string& paramName, int value) = 0;
+	virtual void SetValue(const string& paramName, int value)
+	{
+		stringstream valueToString;
+		valueToString << value;
 
-	virtual void SetValue(const string& paramName, double value) = 0;
+		ISettingsValue* newValue = new ISettingsValue;
+		newValue->SetValue(dtInteger, valueToString.str());
+		list[paramName] = *newValue;
+	}
 
-	virtual void SetValue(const string& paramName, bool value) = 0;
+	virtual void SetValue(const string& paramName, double value)
+	{
+		stringstream valueToString;
+		valueToString << value;
 
-	virtual void SetValue(const string& paramName, const char* value) = 0;
+		ISettingsValue* newValue = new ISettingsValue;
+		newValue->SetValue(dtFloat, valueToString.str());
+		list[paramName] = *newValue;
+	}
 
-	virtual void SetInteger(const string& paramName, int value) = 0;
+	virtual void SetValue(const string& paramName, bool value)
+	{
+		stringstream valueToString;
+		valueToString << value;
 
-	virtual void SetFloat(const string& paramName, double value) = 0;
+		ISettingsValue* newValue = new ISettingsValue;
+		newValue->SetValue(dtBoolean, valueToString.str());
+		list[paramName] = *newValue;
+	}
 
-	virtual void SetBoolean(const string& paramName, bool value) = 0;
+	virtual void SetValue(const string& paramName, const char* value)
+	{
+		string valueToString = value;
+		ISettingsValue* newValue = new ISettingsValue;
+		newValue->SetValue(dtFloat, valueToString);
+		list[paramName] = *newValue;
+	}
 
-	virtual void SetString(const string& paramName, const string& value) = 0;
+	virtual void SetInteger(const string& paramName, int value)
+	{
+		SetValue(paramName, value);
+	}
 
-	virtual ~ISettings() {};
+	virtual void SetFloat(const string& paramName, double value)
+	{
+		SetValue(paramName, value);
+	}
+
+	virtual void SetBoolean(const string& paramName, bool value)
+	{
+		SetValue(paramName, value);
+	}
+
+	virtual void SetString(const string& paramName, const string& value)
+	{
+		ISettingsValue* newValue = new ISettingsValue;
+		newValue->SetValue(value);
+		list[paramName] = *newValue;
+	}
+
+	virtual ~ISettings() 
+	{
+		for (auto i : list)
+		{
+			delete &i.second;
+		}
+		list.clear();
+	}
 
 };
 
 int main()
 {
+	DataType b;
+	b = dtFloat;
 	ISettingsValue a;
-	a.SetValue("");
+	cout << a.GetType() << endl;
+	a.SetValue(b, "233");
 
 	cout << a.AsString() << endl;
-    cout << a.AsBoolean() << endl;    
-	cout << a.AsDouble () << endl;
+	cout << a.AsDouble() << endl;
 	cout << a.AsInteger() << endl;
+    cout << a.AsBoolean() << endl;    
+	cout << a.GetType() << endl;
+	cout << b << endl;
+
 	system("pause");
 }
