@@ -1,5 +1,4 @@
 firstparameter = "true"
-fifth_parameter = "true"
-second_parametEr = "true"
-2
-third_parameter = "true"
+second_pa24rametEr = 3.2
+second_parameter = 2
+third_parameter = "my own"

@@ -77,15 +77,16 @@ class ISettings
 		return symbol >= '0' && symbol <= '9' || symbol == '=';
 	}
 
-	ISettingsValue* parseValue(string settingStr)
+	ISettingsValue* strToISettingsValueParser(string settingStr)
 	{
 		stringstream settingStrStream(settingStr);
-		string strBuf = settingStrStream.str();
+		string strBuf = settingStr;
 		string paramValueStr = "";
 		DataType paramType = dtUnknown;
 
 		if (strBuf[0] == '\"')
 		{
+			strBuf = strBuf.substr(1);
 			for (auto i : strBuf)
 			{
 				if (i == '\"')
@@ -125,17 +126,22 @@ class ISettings
 			|| symbol == '_';
 	}
 
-	string writeStringForSave(pair <string, ISettingsValue*> item)
+	string nameValidator(string name)
 	{
 		string validName = "";
-		for (auto i : item.first)
+		for (auto i : name)
 		{
-			if (isValIdSymbol(i) || isValIdSymbol(i))
+			if (isValIdSymbol(i) || isNumber(i))
 				validName += i;
 		}
 		if (isNumber(validName[0]))
-			validName.substr(1);
+			validName = validName.substr(1);
+		return validName;
+	}
 
+	string writeStringForSave(pair <string, ISettingsValue*> item)
+	{
+		string validName = nameValidator(item.first);
 		string resultString = validName + " = ";
 
 		switch (item.second->GetType())
@@ -151,7 +157,7 @@ class ISettings
 		case dtString:
 			return resultString += "\"" + item.second->AsString() + "\"";
 		}
-		return item.second->AsString();
+		return resultString += item.second->AsString();
 	}
 
 public:
@@ -168,24 +174,35 @@ public:
 			file >> paramName;
 
 			string lineBufStr = "";
-			file >> lineBufStr;		// get '='
 			getline(file, lineBufStr);
+			if (lineBufStr.empty())
+				continue;
 
-			ISettingsValue* paramValue = parseValue(lineBufStr);
+			lineBufStr = lineBufStr.substr(3);		// cut " = "
+
+			ISettingsValue* paramValue = strToISettingsValueParser(lineBufStr);
+			if (paramValue->GetType() == dtUnknown)
+			{
+				delete paramValue;
+				continue;
+			}			
 			list[paramName] = paramValue;
-			
-			file.close();
 		}
+		file.close();
 		return true;
 	}
 
 	virtual bool SaveToFile(const string& name)
 	{
+		if (list.empty())
+			return true;
+
 		ofstream file(name);
 		if (file)
 		{
 			for (auto item : list)
-				file << writeStringForSave(item) << '\n';
+				if(item.second->AsString() != "")
+					file << writeStringForSave(item) << '\n';
 
 			file.close();
 			return true;
@@ -259,7 +276,7 @@ public:
 	{
 		string valueToString = value;
 		ISettingsValue* newValue = new ISettingsValue;
-		newValue->SetValue(dtFloat, valueToString);
+		newValue->SetValue(dtString, valueToString);
 		list[paramName] = newValue;
 	}
 
@@ -293,7 +310,6 @@ public:
 		}
 		list.clear();
 	}
-
 };
 
 int main()
@@ -302,16 +318,16 @@ int main()
 	a.SetValue("true");
 
 	ISettings set;
-	set.SetValue("1first parameter", a);
-	set.SetValue("second_pa 24rametE]\nr", a);
-	set.SetValue("third_parameter", a);
-	set.SetValue("fifth_parameter", a);
+	/*set.SetValue("1first parameter", a);
+	set.SetValue("second_pa 24rametE]\nr", 3.2);
+	set.SetValue("third_parameter", "my own");
+	set.SetValue("fifth_parameter", "");
 
 	set.SetValue("second_parameter", 2);
 	cout << a.AsString();
 
 	set.SaveToFile("test.txt");
-
-
-	system("pause");
+*/
+	set.LoadFromFile("test.txt");
+	set.SaveToFile("test.txt");
 }
