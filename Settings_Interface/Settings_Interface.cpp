@@ -40,26 +40,27 @@ public:
 
 	virtual int AsInteger()
 	{
-		stringstream valueStream(value);
 		int result = 0;
+		stringstream valueStream(value);	
 		valueStream >> result;
 		return result;
 	}
 
 	virtual double AsDouble()
 	{	
-		stringstream valueStream(value);
 		double result = 0;
+		stringstream valueStream(value);		
 		valueStream >> result;
 		return result;
 	}
 
-	virtual bool AsBoolean()
-	{
-		return !value.empty();
+	virtual bool AsBoolean() { 
+		return !value.empty(); 
 	}
 
-	virtual DataType GetType() { return type; }
+	virtual DataType GetType() { 
+		return type;
+	}
 
 	virtual ~ISettingsValue() 
 	{
@@ -70,94 +71,106 @@ public:
 
 class ISettings
 {
-	map <string, ISettingsValue*> list;
-
-	bool isNumber(char symbol)
+	struct parameter 
 	{
-		return symbol >= '0' && symbol <= '9' || symbol == '=';
+		string value = "";
+		DataType type = dtUnknown;
+	};
+
+	map <string, parameter> list;
+
+	void editParamInList(string paramName, string value, DataType type)
+	{
+		parameter param;
+		param.value = value;
+		param.type = type;
+		list[paramName] = param;
 	}
 
-	ISettingsValue* strToISettingsValueParser(string settingStr)
-	{
-		stringstream settingStrStream(settingStr);
-		string strBuf = settingStr;
-		string paramValueStr = "";
-		DataType paramType = dtUnknown;
+	bool strToBool(string str) {
+		return !str.empty();
+	}
 
-		if (strBuf[0] == '\"')
-		{
-			strBuf = strBuf.substr(1);
-			for (auto i : strBuf)
-			{
-				if (i == '\"')
-					break;
-				paramValueStr += i;
-			}
-			if (paramValueStr != "")
-				paramType = dtString;					   
-		}
-		else
-		{
-			settingStrStream >> paramValueStr;
-			if (isNumber(paramValueStr[0]))
-			{
-				paramType = dtInteger;
-				for (auto i : paramValueStr)
-				{
-					if (i == '.')
-					{
-						paramType = dtFloat;
-						break;
-					}
-				}
-			}
-			else if (paramValueStr == "true" || paramValueStr == "false")
-				paramType = dtBoolean;
-		}
-		ISettingsValue* paramValue = new ISettingsValue;
-		paramValue->SetValue(paramType, paramValueStr);
-		return paramValue;
+	bool isNumber(char symbol) {
+		return symbol >= '0' && symbol <= '9';
 	}
 
 	char isValIdSymbol(char symbol)
 	{
-		return symbol >= 'a' && symbol <= 'z' 
-			|| symbol >= 'A' && symbol <= 'Z' 
-			|| symbol == '_';
+		return isNumber(symbol) || symbol == '_'
+			|| symbol >= 'a' && symbol <= 'z'
+			|| symbol >= 'A' && symbol <= 'Z';
 	}
 
 	string nameValidator(string name)
 	{
-		string validName = "";
+		int length = name.length();
+		char* validName = new char[length];
+		
+		if (isNumber(name[0]))
+			name[0] = ' ';
+
+		int lastPos = 0;
 		for (auto i : name)
-		{
-			if (isValIdSymbol(i) || isNumber(i))
-				validName += i;
-		}
-		if (isNumber(validName[0]))
-			validName = validName.substr(1);
+			if (isValIdSymbol(i))
+			{
+				validName[lastPos] = i;
+				lastPos++;
+			}
+		validName[lastPos] = '\0';
 		return validName;
 	}
 
-	string writeStringForSave(pair <string, ISettingsValue*> item)
+	string paramToStrForSave(parameter param)
 	{
-		string validName = nameValidator(item.first);
-		string resultString = validName + " = ";
-
-		switch (item.second->GetType())
+		string resultString = "";
+		switch (param.type)
 		{	
 		case dtUnknown:
 			return "";
 
 		case dtBoolean:
-			if (item.second->AsBoolean())
-				return resultString += "true";
-			return resultString += "false";
+			return resultString += strToBool(param.value) ? "true" : "false";
 
 		case dtString:
-			return resultString += "\"" + item.second->AsString() + "\"";
+			return resultString += "\"" + param.value + "\"";
 		}
-		return resultString += item.second->AsString();
+		return resultString += param.value;
+	}
+
+	DataType checkStrDataType(const string& str)
+	{
+		if (str[0] == '\"')
+			return dtString;
+
+		if (isNumber(str[0]) || str[0] == '-')
+		{
+			for (auto i : str)
+				if (i == '.')
+					return dtFloat;
+			return dtInteger;
+		}
+
+		if (str == "true" || str == "false")
+			return dtBoolean;
+
+		return dtUnknown;
+	}
+
+	string parseStrByType(const string& str, DataType type)
+	{
+		switch (type)
+		{
+		case dtInteger:
+		case dtFloat:
+			return str;
+		case dtBoolean:
+			return str.compare("true") ? "0" : "";
+		case dtString:
+			int end = str.find('\"', 1);
+			return str.substr(1, end - 1);
+		}
+		return "";
 	}
 
 public:
@@ -173,20 +186,17 @@ public:
 			string paramName = "";
 			file >> paramName;
 
-			string lineBufStr = "";
-			getline(file, lineBufStr);
-			if (lineBufStr.empty())
+			string fileLine = "";
+			getline(file, fileLine);
+
+			if (fileLine.empty())
 				continue;
 
-			lineBufStr = lineBufStr.substr(3);		// cut " = "
+			fileLine = fileLine.substr(3);		// cut " = "
 
-			ISettingsValue* paramValue = strToISettingsValueParser(lineBufStr);
-			if (paramValue->GetType() == dtUnknown)
-			{
-				delete paramValue;
-				continue;
-			}			
-			list[paramName] = paramValue;
+			DataType paramType = checkStrDataType(fileLine);
+			string paramValue = parseStrByType(fileLine, paramType);
+			editParamInList(paramName, paramValue, paramType);
 		}
 		file.close();
 		return true;
@@ -201,115 +211,102 @@ public:
 		if (file)
 		{
 			for (auto item : list)
-				if(item.second->AsString() != "")
-					file << writeStringForSave(item) << '\n';
+			{
+				string paramName = nameValidator(item.first);
+				string paramValue = paramToStrForSave(item.second);
 
+				if(paramValue != "")
+					file << paramName << " = " << paramValue << '\n';
+			}
 			file.close();
 			return true;
 		}
 		return false;
 	}
 
-	virtual ISettingsValue Get(const string& paramName)
+	virtual ISettingsValue* Get(const string& paramName)
 	{
-		return *list[paramName];
+		ISettingsValue* value = new ISettingsValue;
+		parameter* param = &list[paramName];
+		value->SetValue(param->type, param->value);
+		return value;
 	}
 
 	virtual int GetInteger(const string& paramName)
 	{
-		return list[paramName]->AsInteger();
+		int value = 0;
+		stringstream stream(list[paramName].value);
+		stream >> value;
+		return value;
 	}
 
 	virtual double GetFloat(const string& paramName)
 	{
-		return list[paramName]->AsDouble();
+		double value = 0;
+		stringstream stream(list[paramName].value);
+		stream >> value;
+		return value;
 	}
 
-	virtual bool GetBoolean(const string& paramName) 
-	{ 
-		return list[paramName]->AsBoolean();
+	virtual bool GetBoolean(const string& paramName) { 
+		return strToBool(list[paramName].value);
 	}
 
-	virtual string GetString(const string& paramName)
-	{
-		return list[paramName]->AsString();
+	virtual string GetString(const string& paramName) {
+		return list[paramName].value;
 	}
 
 	virtual void SetValue(const string& paramName, const ISettingsValue& value)
 	{
 		ISettingsValue* newValue = new ISettingsValue;
 		*newValue = value;
-		list[paramName] = newValue;
+		editParamInList(paramName, newValue->AsString(), newValue->GetType());
+		delete newValue;
 	}
 
 	virtual void SetValue(const string& paramName, int value)
 	{
 		stringstream valueToString;
 		valueToString << value;
-
-		ISettingsValue* newValue = new ISettingsValue;
-		newValue->SetValue(dtInteger, valueToString.str());
-		list[paramName] = newValue;
+		editParamInList(paramName, valueToString.str(), dtInteger);
 	}
 
 	virtual void SetValue(const string& paramName, double value)
 	{
 		stringstream valueToString;
 		valueToString << value;
-
-		ISettingsValue* newValue = new ISettingsValue;
-		newValue->SetValue(dtFloat, valueToString.str());
-		list[paramName] = newValue;
+		editParamInList(paramName, valueToString.str(), dtFloat);
 	}
 
 	virtual void SetValue(const string& paramName, bool value)
 	{
 		stringstream valueToString;
 		valueToString << value;
-
-		ISettingsValue* newValue = new ISettingsValue;
-		newValue->SetValue(dtBoolean, valueToString.str());
-		list[paramName] = newValue;
+		editParamInList(paramName, valueToString.str(), dtBoolean);
 	}
 
-	virtual void SetValue(const string& paramName, const char* value)
-	{
-		string valueToString = value;
-		ISettingsValue* newValue = new ISettingsValue;
-		newValue->SetValue(dtString, valueToString);
-		list[paramName] = newValue;
+
+	virtual void SetString(const string& paramName, const string& value) {
+		editParamInList(paramName, value, dtString);
 	}
 
-	virtual void SetInteger(const string& paramName, int value)
-	{
+	virtual void SetValue(const string& paramName, const char* value) {
+		SetString(paramName, value);
+	}
+
+	virtual void SetInteger(const string& paramName, int value) {
 		SetValue(paramName, value);
 	}
 
-	virtual void SetFloat(const string& paramName, double value)
-	{
+	virtual void SetFloat(const string& paramName, double value) {
 		SetValue(paramName, value);
 	}
 
-	virtual void SetBoolean(const string& paramName, bool value)
-	{
+	virtual void SetBoolean(const string& paramName, bool value) {
 		SetValue(paramName, value);
 	}
 
-	virtual void SetString(const string& paramName, const string& value)
-	{
-		ISettingsValue* newValue = new ISettingsValue;
-		newValue->SetValue(value);
-		list[paramName] = newValue;
-	}
-
-	virtual ~ISettings() 
-	{
-		for (auto item : list)
-		{
-			delete item.second;
-		}
-		list.clear();
-	}
+	virtual ~ISettings() { list.clear(); }
 };
 
 int main()
@@ -322,12 +319,9 @@ int main()
 	set.SetValue("second_pa 24rametE]\nr", 3.2);
 	set.SetValue("third_parameter", "my own");
 	set.SetValue("fifth_parameter", "");
-
 	set.SetValue("second_parameter", 2);
-	cout << a.AsString();
+	set.SetValue("fourth_parameter", true);*/
 
-	set.SaveToFile("test.txt");
-*/
 	set.LoadFromFile("test.txt");
 	set.SaveToFile("test.txt");
 }
