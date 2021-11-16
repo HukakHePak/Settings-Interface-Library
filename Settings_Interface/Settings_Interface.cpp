@@ -81,7 +81,7 @@ class ISettings
 
 	map <string, parameter> list;
 
-	void editParamInList(const string& paramName, const string& value, DataType type)	{
+	void editParamInList(const string& paramName, const string& value, DataType type) {
 		list[paramName] = { value, type };
 	}
 
@@ -89,30 +89,29 @@ class ISettings
 		return symbol >= '0' && symbol <= '9';
 	}
 
-	char isValIdSymbol(char symbol)
+	bool isValIdSymbol(char symbol)
 	{
-		return isNumber(symbol) || symbol == '_'
+		return symbol == '_'
 			|| symbol >= 'a' && symbol <= 'z'
 			|| symbol >= 'A' && symbol <= 'Z';
 	}
 
-	string nameValidator(string name)
+	string filterString(const string& name)
 	{
-		int length = name.length();
-		char* validName = new char[length];
-		
-		if (isNumber(name[0]))
-			name[0] = ' ';
+		string result = name;
+
+		if (isNumber(result[0]))
+			result[0] = ' ';
 
 		int lastPos = 0;
-		for (auto i : name)
-			if (isValIdSymbol(i))
+		for (auto i : result)
+			if (isValIdSymbol(i) || isNumber(i))
 			{
-				validName[lastPos] = i;
+				result[lastPos] = i;
 				lastPos++;
 			}
-		validName[lastPos] = '\0';
-		return validName;
+
+		return result.erase(lastPos, result.length());
 	}
 
 	string paramToStrForSave(const parameter& param)
@@ -159,7 +158,7 @@ class ISettings
 			return str;
 
 		case dtBoolean:
-			return str.compare("true") ? "0" : "";
+ 			return str.compare("true") ? "" : "0";
 
 		case dtString:
 			int end = str.find('\"', 1);
@@ -207,7 +206,7 @@ public:
 		{
 			for (auto item : list)
 			{
-				string paramName = nameValidator(item.first);
+				string paramName = filterString(item.first);
 				string paramValue = paramToStrForSave(item.second);
 
 				if(paramValue != "")
