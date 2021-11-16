@@ -36,7 +36,9 @@ public:
 		this->type = type;
 	}
 
-	virtual string AsString() { return value; }
+	virtual string AsString() { 
+		return value; 
+	}
 
 	virtual int AsInteger()
 	{
@@ -79,16 +81,8 @@ class ISettings
 
 	map <string, parameter> list;
 
-	void editParamInList(string paramName, string value, DataType type)
-	{
-		parameter param;
-		param.value = value;
-		param.type = type;
-		list[paramName] = param;
-	}
-
-	bool strToBool(string str) {
-		return !str.empty();
+	void editParamInList(const string& paramName, const string& value, DataType type)	{
+		list[paramName] = { value, type };
 	}
 
 	bool isNumber(char symbol) {
@@ -121,24 +115,23 @@ class ISettings
 		return validName;
 	}
 
-	string paramToStrForSave(parameter param)
+	string paramToStrForSave(const parameter& param)
 	{
-		string resultString = "";
 		switch (param.type)
 		{	
 		case dtUnknown:
 			return "";
 
 		case dtBoolean:
-			return resultString += strToBool(param.value) ? "true" : "false";
+			return param.value.empty() ?  "false" : "true";
 
 		case dtString:
-			return resultString += "\"" + param.value + "\"";
+			return "\"" + param.value + "\"";
 		}
-		return resultString += param.value;
+		return param.value;
 	}
 
-	DataType checkStrDataType(const string& str)
+	DataType checkStrType(const string& str)
 	{
 		if (str[0] == '\"')
 			return dtString;
@@ -164,8 +157,10 @@ class ISettings
 		case dtInteger:
 		case dtFloat:
 			return str;
+
 		case dtBoolean:
 			return str.compare("true") ? "0" : "";
+
 		case dtString:
 			int end = str.find('\"', 1);
 			return str.substr(1, end - 1);
@@ -194,7 +189,7 @@ public:
 
 			fileLine = fileLine.substr(3);		// cut " = "
 
-			DataType paramType = checkStrDataType(fileLine);
+			DataType paramType = checkStrType(fileLine);
 			string paramValue = parseStrByType(fileLine, paramType);
 			editParamInList(paramName, paramValue, paramType);
 		}
@@ -249,19 +244,15 @@ public:
 	}
 
 	virtual bool GetBoolean(const string& paramName) { 
-		return strToBool(list[paramName].value);
+		return !list[paramName].value.empty();
 	}
 
 	virtual string GetString(const string& paramName) {
 		return list[paramName].value;
 	}
 
-	virtual void SetValue(const string& paramName, const ISettingsValue& value)
-	{
-		ISettingsValue* newValue = new ISettingsValue;
-		*newValue = value;
-		editParamInList(paramName, newValue->AsString(), newValue->GetType());
-		delete newValue;
+	virtual void SetValue(const string& paramName, ISettingsValue& value) {
+		editParamInList(paramName, value.AsString(), value.GetType());
 	}
 
 	virtual void SetValue(const string& paramName, int value)
@@ -317,7 +308,7 @@ int main()
 	ISettings set;
 	/*set.SetValue("1first parameter", a);
 	set.SetValue("second_pa 24rametE]\nr", 3.2);
-	set.SetValue("third_parameter", "my own");
+	set.SetValue("third_parameter", "my o\nwn");
 	set.SetValue("fifth_parameter", "");
 	set.SetValue("second_parameter", 2);
 	set.SetValue("fourth_parameter", true);*/
