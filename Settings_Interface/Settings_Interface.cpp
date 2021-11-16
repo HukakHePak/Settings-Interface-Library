@@ -96,20 +96,21 @@ class ISettings
 			|| symbol >= 'A' && symbol <= 'Z';
 	}
 
-	string filterString(const string& name)
+	string filterName(const string& name)
 	{
 		string result = name;
-
-		if (isNumber(result[0]))
-			result[0] = ' ';
+	
+		for(int i = 0; i < result.length(); i++)
+		{
+			if (isValIdSymbol(result[i]))
+				break;
+			result[i] = ' ';			
+		} 
 
 		int lastPos = 0;
 		for (auto i : result)
 			if (isValIdSymbol(i) || isNumber(i))
-			{
-				result[lastPos] = i;
-				lastPos++;
-			}
+				result[lastPos++] = i;
 
 		return result.erase(lastPos, result.length());
 	}
@@ -205,13 +206,8 @@ public:
 		if (file)
 		{
 			for (auto item : list)
-			{
-				string paramName = filterString(item.first);
-				string paramValue = paramToStrForSave(item.second);
+				file << filterName(item.first) << " = " << paramToStrForSave(item.second) << '\n';
 
-				if(paramValue != "")
-					file << paramName << " = " << paramValue << '\n';
-			}
 			file.close();
 			return true;
 		}
@@ -270,11 +266,8 @@ public:
 
 	virtual void SetValue(const string& paramName, bool value)
 	{
-		stringstream valueToString;
-		valueToString << value;
-		editParamInList(paramName, valueToString.str(), dtBoolean);
+		editParamInList(paramName, value ? "0" : "" , dtBoolean);
 	}
-
 
 	virtual void SetString(const string& paramName, const string& value) {
 		editParamInList(paramName, value, dtString);
@@ -313,5 +306,33 @@ int main()
 	set.SetValue("fourth_parameter", true);*/
 
 	set.LoadFromFile("test.txt");
+	/*set.SetValue("fifth_parameter", 23);
+	a.SetValue(dtFloat, "2.2402509");
+	set.SetValue("s7_parametr", a);
+	set.SetValue("second_parameter", false);
+	a.SetValue(set.GetString("fourth_parameter"));
+	set.SetValue("fourth_parameter", a);
+	set.SetValue("1first parameter", true);
+	a.SetValue(dtBoolean, set.GetString("second_parameter"));
+	a = *set.Get("fifth_parameter");
+	set.SetValue("eig8_param e", a);
+	set.SetValue("fourth_parameter", set.GetBoolean("fourth_parameter"));
+	set.SetValue("99doublefloattest", set.GetInteger("s7_parametr"));
+	set.SetValue("9999oubleBooltest", set.GetBoolean("s7_parametr"));
+	set.SetFloat("   -2espFloat", 241.113);
+	a = *set.Get("   -2espFloat");
+	set.SetValue("espFloatGetSet", a);
+
+	set.SetInteger("   Integer", 241.113);
+	a = *set.Get("   Integer");
+	set.SetValue("   Integer", a); 
+
+	set.SetBoolean("Double ", false);
+	a = *set.Get("Double ");
+	set.SetValue("Double ", a);
+	a.SetValue("wooooooooooooooaaaaaaaaaaahhhhhhhhhh");
+	set.SetValue("weeeeeee-weeeeeee", a);
+	set.SetValue("weeeeeee-weeeeeeeee", "");*/
+	
 	set.SaveToFile("test.txt");
 }
