@@ -1,30 +1,33 @@
-﻿// Settings_Interface.cpp : Этот файл содержит функцию "main". Здесь начинается и заканчивается выполнение программы.
-//
+﻿#include "ISettings.h"
+#include <sstream>
+#include <iostream>
+#include <fstream>
+#include <map>
 
-#include "ISettings.h"
-
-using namespace std;
-
-
-namespace ISettings
+class SettingsValue : public ISettingsValue
 {
-	void ISettingsValue::SetValue(const string& value)
+	string value = "";
+	DataType type = dtUnknown;
+
+public:
+	SettingsValue() {}
+	SettingsValue(const string& value) : value(value) {}
+
+	virtual void SetValue(const string& value)
 	{
 		this->value = value;
 		type = dtString;
 	}
 
-	void ISettingsValue::SetValue(DataType type, const string& value)
+	virtual void SetValue(DataType type, const string& value)
 	{
 		this->value = value;
 		this->type = type;
 	}
 
-	string ISettingsValue::AsString() {
-		return value;
-	}
+	virtual string AsString() {	return value; }
 
-	int ISettingsValue::AsInteger()
+	virtual int AsInteger()
 	{
 		int result = 0;
 		stringstream valueStream(value);
@@ -32,7 +35,7 @@ namespace ISettings
 		return result;
 	}
 
-	double ISettingsValue::AsDouble()
+	virtual double AsDouble()
 	{
 		double result = 0;
 		stringstream valueStream(value);
@@ -40,36 +43,50 @@ namespace ISettings
 		return result;
 	}
 
-	bool ISettingsValue::AsBoolean() {
-		return !value.empty();
-	}
+	virtual bool AsBoolean() { return !value.empty(); }
 
-	DataType ISettingsValue::GetType() {
-		return type;
-	}
+	virtual DataType GetType() { return type; }
 
-	ISettingsValue::~ISettingsValue()
+	virtual ~SettingsValue()
 	{
 		value = "";
 		value.clear();
+		cout << "delete_value" << endl;
+	}
+};
+
+class Settings : public ISettings
+{
+	map <string, SettingsValue> list;
+
+	void editParamInList(const string& paramName, const string& value, DataType type) {
+		list[paramName].SetValue(type, value);
 	}
 
-	void ISettings::editParamInList(const string& paramName, const string& value, DataType type) {
-		list[paramName] = { value, type };
-	}
-
-	bool ISettings::isNumber(char symbol) {
+	bool isNumber(char symbol) {
 		return symbol >= '0' && symbol <= '9';
 	}
 
-	bool ISettings::isValIdSymbol(char symbol)
+	bool isValIdSymbol(char symbol)
 	{
 		return symbol == '_'
 			|| symbol >= 'a' && symbol <= 'z'
 			|| symbol >= 'A' && symbol <= 'Z';
 	}
 
-	string ISettings::filterName(const string& name)
+	string filter(const string& str, bool (*checkSymbol) (char))
+	{
+		string result = str;
+		int lastPos = 0;
+
+		for (auto i : result)
+			if (checkSymbol(i))
+				result[lastPos++] = i;
+
+		return result.erase(lastPos);
+	}
+
+	string filterName(const string& name)
 	{
 		string result = name;
 
@@ -85,26 +102,26 @@ namespace ISettings
 			if (isValIdSymbol(i) || isNumber(i))
 				result[lastPos++] = i;
 
-		return result.erase(lastPos, result.length());
+		return result.erase(lastPos);
 	}
 
-	string ISettings::paramToStrForSave(const parameter& param)
+	string valueToStrForSave(string value, DataType type)
 	{
-		switch (param.type)
+		switch (type)
 		{
 		case dtUnknown:
 			return "";
 
 		case dtBoolean:
-			return param.value.empty() ? "false" : "true";
+			return value.empty() ? "false" : "true";
 
 		case dtString:
-			return "\"" + param.value + "\"";
+			return "\"" + value + "\"";
 		}
-		return param.value;
+		return value;
 	}
 
-	DataType ISettings::checkStrType(const string& str)
+	DataType checkStrType(const string& str)
 	{
 		if (str[0] == '\"')
 			return dtString;
@@ -117,22 +134,22 @@ namespace ISettings
 			return dtInteger;
 		}
 
-		if (str == "true" || str == "false")
+		if (str.find("true") != -1 || str.find("false") != -1)
 			return dtBoolean;
 
 		return dtUnknown;
 	}
 
-	string ISettings::parseStrByType(const string& str, DataType type)
+	string parseStrByType(const string& str, DataType type)
 	{
 		switch (type)
 		{
 		case dtInteger:
 		case dtFloat:
-			return str;
+			return filter(str, [](char c) -> bool { return c >= '0' && c <= '9' || c == '.'; });
 
 		case dtBoolean:
-			return str.compare("true") ? "" : "0";
+			return str.find("true") == -1 ? "" : "0";
 
 		case dtString:
 			int end = str.find('\"', 1);
@@ -141,9 +158,9 @@ namespace ISettings
 		return "";
 	}
 
+public:
 
-
-	bool ISettings::LoadFromFile(const string& name)
+	virtual bool LoadFromFile(const string& name)
 	{
 		ifstream file(name);
 		if (!file)
@@ -151,26 +168,30 @@ namespace ISettings
 
 		while (!file.eof())
 		{
-			string paramName = "";
-			file >> paramName;
+			string line = "";
+			getline(file, line);
 
-			string fileLine = "";
-			getline(file, fileLine);
-
-			if (fileLine.empty())
+			if (line.empty())
 				continue;
 
-			fileLine = fileLine.substr(3);		// cut " = "
+			int lineDiv = line.find('=');
+			string paramName = filterName(line.substr(0, lineDiv));
+			string lineValue = line.substr(lineDiv + 1);
 
-			DataType paramType = checkStrType(fileLine);
-			string paramValue = parseStrByType(fileLine, paramType);
-			editParamInList(paramName, paramValue, paramType);
+			int startPos = 0;
+			while (lineValue[startPos] == ' ')
+				startPos++;
+			lineValue = lineValue.substr(startPos);
+
+			DataType paramType = checkStrType(lineValue);
+			string paramValue = parseStrByType(lineValue, paramType);
+			list[paramName].SetValue(paramType, paramValue);
 		}
 		file.close();
 		return true;
 	}
 
-	bool ISettings::SaveToFile(const string& name)
+	virtual bool SaveToFile(const string& name)
 	{
 		if (list.empty())
 			return true;
@@ -179,7 +200,8 @@ namespace ISettings
 		if (file)
 		{
 			for (auto item : list)
-				file << filterName(item.first) << " = " << paramToStrForSave(item.second) << '\n';
+				file << item.first << " = " 
+				<< valueToStrForSave(item.second.AsString(), item.second.GetType()) << '\n';
 
 			file.close();
 			return true;
@@ -187,80 +209,59 @@ namespace ISettings
 		return false;
 	}
 
-	ISettingsValue* ISettings::Get(const string& paramName)
+	virtual ISettingsValue& Get(const string& paramName) { return list[paramName]; }
+
+	virtual int GetInteger(const string& paramName)	{ return list[paramName].AsInteger(); }
+
+	virtual double GetFloat(const string& paramName) { return list[paramName].AsDouble(); }
+
+	virtual bool GetBoolean(const string& paramName) { return !list[paramName].AsBoolean(); }
+
+	virtual string GetString(const string& paramName) {	return list[paramName].AsString(); }
+
+	virtual void SetValue(const string& paramName, ISettingsValue& value) 
 	{
-		ISettingsValue* value;
-		parameter* param = &list[paramName];
-		value->SetValue(param->type, param->value);
-		return value;
+		list[filterName(paramName)].SetValue(value.GetType(), value.AsString()); 
 	}
 
-	int ISettings::GetInteger(const string& paramName)
-	{
-		int value = 0;
-		stringstream stream(list[paramName].value);
-		stream >> value;
-		return value;
-	}
-
-	double ISettings::GetFloat(const string& paramName)
-	{
-		double value = 0;
-		stringstream stream(list[paramName].value);
-		stream >> value;
-		return value;
-	}
-
-	bool ISettings::GetBoolean(const string& paramName) {
-		return !list[paramName].value.empty();
-	}
-
-	string ISettings::GetString(const string& paramName) {
-		return list[paramName].value;
-	}
-
-	void ISettings::SetValue(const string& paramName, ISettingsValue& value) {
-		editParamInList(paramName, value.AsString(), value.GetType());
-	}
-
-	void ISettings::SetValue(const string& paramName, int value)
+	virtual void SetValue(const string& paramName, int value)
 	{
 		stringstream valueToString;
 		valueToString << value;
-		editParamInList(paramName, valueToString.str(), dtInteger);
+		list[filterName(paramName)].SetValue(dtInteger, valueToString.str());
 	}
 
-	void ISettings::SetValue(const string& paramName, double value)
+	virtual void SetValue(const string& paramName, double value)
 	{
 		stringstream valueToString;
 		valueToString << value;
-		editParamInList(paramName, valueToString.str(), dtFloat);
+		list[filterName(paramName)].SetValue(dtFloat, valueToString.str());
 	}
 
-	void ISettings::SetValue(const string& paramName, bool value)
+	virtual void SetValue(const string& paramName, bool value)
 	{
-		editParamInList(paramName, value ? "0" : "", dtBoolean);
+		list[filterName(paramName)].SetValue(dtBoolean, value ? "0" : "");
 	}
 
-	void ISettings::SetString(const string& paramName, const string& value) {
-		editParamInList(paramName, value, dtString);
+	virtual void SetString(const string& paramName, const string& value) {
+		list[filterName(paramName)].SetValue(value);
 	}
 
-	void ISettings::SetValue(const string& paramName, const char* value) {
+	virtual void SetValue(const string& paramName, const char* value) {
 		SetString(paramName, value);
 	}
 
-	void ISettings::SetInteger(const string& paramName, int value) {
+	virtual void SetInteger(const string& paramName, int value) {
 		SetValue(paramName, value);
 	}
 
-	void ISettings::SetFloat(const string& paramName, double value) {
+	virtual void SetFloat(const string& paramName, double value) {
 		SetValue(paramName, value);
 	}
 
-	void ISettings::SetBoolean(const string& paramName, bool value) {
+	virtual void SetBoolean(const string& paramName, bool value) {
 		SetValue(paramName, value);
 	}
 
-	ISettings::~ISettings() { list.clear(); }
-}
+	virtual ~Settings() { list.clear(); }
+};
