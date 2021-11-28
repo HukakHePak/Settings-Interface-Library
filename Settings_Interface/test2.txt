@@ -1,0 +1,22 @@
+%Double = false
+22Integer = 241
+         doublefloattest = 2aaaa
+doublefloattest = 4
+eig8_parame = 23
+espFloat = 241.113
+espFloatGetSet = 241.113
+fc = "free"
+fe =            "free"
+fg      = "free"
+fr
+fifth_parameter = 
+firstparameter = "true"rt4
+fourth_parameter = djgkflgf
+oubleBooltest = 2gfg
+s7_parametr = 2.2402509
+s_parametr = 2.2402509
+second_pa24rametEr = 3.2rt
+second_parameter = falserrr
+third_parameter = "my o"
+weeeeeeeweeeeeee = "wooooooooooooooaaaaaaaaaaahhhhhhhhhh
+
