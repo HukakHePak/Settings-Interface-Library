@@ -45,7 +45,9 @@
 	{
 		value = "";
 		value.clear();
+		cout << "delete_value" << endl;
 	}
+};
 
 	void Settings::editParamInList(const string& paramName, const string& value, DataType type) {
 		list[paramName].SetValue(type, value);
@@ -75,6 +77,18 @@
 	}
 
 	string Settings::filterName(const string& name)
+	{
+		string result = str;
+		int lastPos = 0;
+
+		for (auto i : result)
+			if (checkSymbol(i))
+				result[lastPos++] = i;
+
+		return result.erase(lastPos);
+	}
+
+	string filterName(const string& name)
 	{
 		string result = name;
 
