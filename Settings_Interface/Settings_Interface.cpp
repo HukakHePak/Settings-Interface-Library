@@ -37,7 +37,7 @@
 		return result;
 	}
 
-	bool SettingsValue::AsBoolean() { return !value.empty(); }
+	bool SettingsValue::AsBoolean() { return value.find("true") != -1; }
 
 	DataType SettingsValue::GetType() { return type; }
 
@@ -45,7 +45,6 @@
 	{
 		value = "";
 		value.clear();
-		cout << "delete_value" << endl;
 	}
 
 	void Settings::editParamInList(const string& paramName, const string& value, DataType type) {
@@ -135,10 +134,10 @@
 		{
 		case dtInteger:
 		case dtFloat:
-			return filter(str, [](char c) -> bool { return c >= '0' && c <= '9' || c == '.'; });
+			return filter(str, [](char c) -> bool { return c >= '0' && c <= '9' || c == '.' || c == '-'; });
 
 		case dtBoolean:
-			return str.find("true") == -1 ? "" : "0";
+			return str.find("true") == -1 ? "false" : "true";
 
 		case dtString:
 			int end = str.find('\"', 1);
@@ -202,7 +201,7 @@
 
 	double Settings::GetFloat(const string& paramName) { return list[paramName].AsDouble(); }
 
-	bool Settings::GetBoolean(const string& paramName) { return !list[paramName].AsBoolean(); }
+	bool Settings::GetBoolean(const string& paramName) { return list[paramName].AsBoolean(); }
 
 	string Settings::GetString(const string& paramName) {	return list[paramName].AsString(); }
 
@@ -227,7 +226,7 @@
 
 	void Settings::SetValue(const string& paramName, bool value)
 	{
-		list[filterName(paramName)].SetValue(dtBoolean, value ? "0" : "");
+		list[filterName(paramName)].SetValue(dtBoolean, value ? "true" : "false");
 	}
 
 	void Settings::SetString(const string& paramName, const string& value) {
